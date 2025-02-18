@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   // Your Firebase config will go here
@@ -17,6 +18,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // Initialize Analytics only on client side
 let analytics = null;
@@ -24,4 +26,4 @@ if (typeof window !== 'undefined') {
   analytics = getAnalytics(app);
 }
 
-export { db, analytics }; 
+export { db, storage, analytics }; 

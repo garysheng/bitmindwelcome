@@ -1,0 +1,13 @@
+[2024-02-18]
+- Added Deepgram API key to .env.local for audio transcription functionality
+- Created QR code page at /qr that displays a scannable QR code for irl.bitmind.ai
+- Added admin navigation bar component with links to Home, Leads, and QR Code pages
+- Updated admin and QR pages to include the navigation bar
+- Updated README.md with comprehensive instructions for BitMind team usage at ETHDenver
+- Fixed lead filtering by adding isAnnotated field during lead creation
+- Implemented real-time updates in admin page using Firestore onSnapshot
+- Added Submit Note button to admin page for text-only annotations
+- Fixed audio recording stop functionality to prevent page breaks
+- Implemented a more robust voice recording system with better browser compatibility and error handling
+- Created useVoiceRecorder hook with support for Safari and fallback WAV encoding
+- Created new VoiceRecorder component using the hook with improved UI states 
