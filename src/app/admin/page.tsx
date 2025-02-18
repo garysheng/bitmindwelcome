@@ -11,8 +11,11 @@ import { AdminNav } from '@/components/ui/admin-nav';
 import { LeadCard } from '@/components/ui/lead-card';
 import { LeadAnnotationForm } from '@/components/ui/lead-annotation-form';
 import { Inbox, CheckCircle } from 'lucide-react';
+import { AuthGuard } from '@/components/auth-guard';
+import { useAuth } from '@/lib/auth-context';
 
-export default function AdminPage() {
+function AdminPageContent() {
+  const { user } = useAuth();
   const [leads, setLeads] = useState<(BusinessCardSubmissionDB & { id: string })[]>([]);
   const [activeTab, setActiveTab] = useState('unannotated');
   const [selectedLead, setSelectedLead] = useState<(BusinessCardSubmissionDB & { id: string }) | null>(null);
@@ -73,9 +76,13 @@ export default function AdminPage() {
     const file = e.target.files?.[0];
     if (!file || !selectedLead) return;
 
-    // Create local URL for preview
-    const localUrl = URL.createObjectURL(file);
-    setCurrentPhotoUrl(localUrl);
+    try {
+      // Create local URL for preview and store the file
+      const localUrl = URL.createObjectURL(file);
+      setCurrentPhotoUrl(localUrl);
+    } catch (error) {
+      console.error('Error handling photo upload:', error);
+    }
   };
 
   const handleRecordingComplete = async (blob: Blob, mimeType: string) => {
@@ -112,46 +119,59 @@ export default function AdminPage() {
   };
 
   const handleSubmitNote = async () => {
-    if (!selectedLead || !annotation.trim()) return;
+    if (!selectedLead || !annotation.trim() || !user) return;
 
     try {
       setIsLoading(true);
 
       // Upload photo if there's a local URL
       let uploadedPhotoUrl = null;
-      if (currentPhotoUrl && currentPhotoUrl.startsWith('blob:')) {
-        const response = await fetch(currentPhotoUrl);
-        const blob = await response.blob();
-        const storageRef = ref(storage, `leads/${selectedLead.id}/photos/${Date.now()}.jpg`);
-        await uploadBytes(storageRef, blob);
-        uploadedPhotoUrl = await getDownloadURL(storageRef);
-        // Revoke the local URL to free up memory
-        URL.revokeObjectURL(currentPhotoUrl);
-      } else {
-        // If it's not a blob URL, it's already uploaded
-        uploadedPhotoUrl = currentPhotoUrl;
+      if (currentPhotoUrl) {
+        if (currentPhotoUrl.startsWith('blob:')) {
+          try {
+            const response = await fetch(currentPhotoUrl);
+            const blob = await response.blob();
+            const storageRef = ref(storage, `leads/${selectedLead.id}/photos/${Date.now()}.jpg`);
+            await uploadBytes(storageRef, blob);
+            uploadedPhotoUrl = await getDownloadURL(storageRef);
+            // Revoke the local URL to free up memory
+            URL.revokeObjectURL(currentPhotoUrl);
+          } catch (uploadError) {
+            console.error('Error uploading photo:', uploadError);
+            setIsLoading(false);
+            return;
+          }
+        } else {
+          // If it's not a blob URL, it's already uploaded
+          uploadedPhotoUrl = currentPhotoUrl;
+        }
       }
 
-      await updateDoc(doc(db, 'leads', selectedLead.id), {
+      // Update the lead document with all annotation data
+      const updateData = {
         adminAnnotation: {
           text: annotation,
           audioUrl: currentAudioUrl,
           photoUrl: uploadedPhotoUrl,
           createdAt: serverTimestamp(),
-          createdBy: 'admin', // TODO: Replace with actual admin user
+          createdBy: user.email, // Use authenticated user's email
           identities: selectedIdentities
         },
-        isAnnotated: true
-      });
+        isAnnotated: true,
+        updatedAt: serverTimestamp()
+      };
 
+      await updateDoc(doc(db, 'leads', selectedLead.id), updateData);
+
+      // Reset form state
       setAnnotation('');
       setSelectedIdentities([]);
       setSelectedLead(null);
       setCurrentAudioUrl(null);
       setCurrentPhotoUrl(null);
-      setIsLoading(false);
     } catch (err) {
       console.error('Error saving note:', err);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -172,7 +192,7 @@ export default function AdminPage() {
           <CardHeader>
             <CardTitle className="text-2xl font-satori text-white">Lead Management</CardTitle>
             <CardDescription className="text-gray-400">
-              Review and annotate leads from business card submissions
+              Logged in as {user?.email} • Review and annotate leads from business card submissions
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -192,7 +212,15 @@ export default function AdminPage() {
                 {isLoading ? (
                   <div className="text-center text-gray-400">Loading leads...</div>
                 ) : leads.length === 0 ? (
-                  <div className="text-center text-gray-400">No unannotated leads</div>
+                  <div className="py-12 text-center space-y-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 text-green-500 mb-4">
+                      <CheckCircle className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-satori text-white">All caught up!</h3>
+                    <p className="text-gray-400 max-w-sm mx-auto">
+                      You&apos;ve reviewed all leads. Great job! Check back later for new submissions.
+                    </p>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-4">
@@ -202,7 +230,7 @@ export default function AdminPage() {
                           lead={lead}
                           isSelected={selectedLead?.id === lead.id}
                           isAnnotated={false}
-                          onClick={() => setSelectedLead(lead)}
+                          onClick={() => setSelectedLead(selectedLead?.id === lead.id ? null : lead)}
                         />
                       ))}
                     </div>
@@ -241,7 +269,7 @@ export default function AdminPage() {
                           lead={lead}
                           isSelected={selectedLead?.id === lead.id}
                           isAnnotated={true}
-                          onClick={() => setSelectedLead(lead)}
+                          onClick={() => setSelectedLead(selectedLead?.id === lead.id ? null : lead)}
                         />
                       ))}
                     </div>
@@ -270,5 +298,13 @@ export default function AdminPage() {
         </Card>
       </main>
     </>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <AuthGuard>
+      <AdminPageContent />
+    </AuthGuard>
   );
 } 

@@ -76,6 +76,7 @@ export function LeadCard({ lead, isSelected, isAnnotated, onClick }: LeadCardPro
                   alt="Lead photo attachment"
                   fill
                   className="object-contain rounded-md"
+                  unoptimized
                 />
               </div>
             )}

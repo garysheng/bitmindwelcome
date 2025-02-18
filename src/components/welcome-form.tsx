@@ -7,14 +7,16 @@ import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { FormStep, BITMIND_TEAMMATES } from '@/types';
+import { FormStep, BITMIND_TEAMMATES, BusinessCardSubmissionDB } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, doc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, serverTimestamp, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { analyzeLead } from '@/lib/cron/leadAnalysis';
 
 export function WelcomeForm() {
   const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState<FormStep>('email');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     name: '',
@@ -97,6 +99,7 @@ export function WelcomeForm() {
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               isAnnotated: false,
+              aiAnalysis: null,
               ...(locationData && {
                 location: {
                   ...locationData,
@@ -163,17 +166,29 @@ export function WelcomeForm() {
           break;
         case 'note':
           if (!leadDocId) throw new Error('No lead document ID found');
-          if (value) { // Only update if a note was provided
+          
+          setIsSubmitting(true);
+          // Update the note if provided
+          if (value) {
             await updateDoc(doc(db, 'leads', leadDocId), {
               note: value,
               updatedAt: serverTimestamp()
             });
             setFormData(prev => ({ ...prev, note: value }));
           }
+
+          // Move to thanks screen immediately
           nextStep = 'thanks';
-          setTimeout(() => {
-            window.location.href = 'https://bitmind.ai';
-          }, 3000);
+          setCurrentStep(nextStep);
+          setIsSubmitting(false);
+
+          // Trigger AI analysis in the background
+          const leadDoc = await getDoc(doc(db, 'leads', leadDocId));
+          const leadData = leadDoc.data() as BusinessCardSubmissionDB;
+          analyzeLead({ ...leadData, id: leadDocId }).catch(err => {
+            console.error('Error analyzing lead:', err);
+          });
+          
           break;
       }
 
@@ -387,9 +402,17 @@ export function WelcomeForm() {
                 />
                 <Button 
                   className="w-full bg-white text-black hover:bg-gray-100"
-                  onClick={(e) => handleSubmit((e.currentTarget.previousElementSibling as HTMLTextAreaElement).value)}
+                  onClick={() => handleSubmit(formData.note)}
+                  disabled={isSubmitting}
                 >
-                  Finish
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      Saving...
+                    </div>
+                  ) : (
+                    'Finish'
+                  )}
                 </Button>
               </motion.div>
             ) : (
@@ -399,7 +422,12 @@ export function WelcomeForm() {
                 {...slideAnimation}
               >
                 <p className="text-gray-300 font-satori font-bold">Thanks for connecting! Looking forward to continuing our conversation.</p>
-                <p className="text-sm text-gray-500 font-satori">Redirecting to bitmind.ai...</p>
+                <Button 
+                  className="w-full bg-white text-black hover:bg-gray-100"
+                  onClick={() => window.location.href = 'https://bitmind.ai'}
+                >
+                  Visit BitMind Homepage
+                </Button>
               </motion.div>
             )}
           </AnimatePresence>

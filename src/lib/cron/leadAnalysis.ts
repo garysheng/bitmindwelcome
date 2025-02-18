@@ -26,12 +26,19 @@ async function searchPerplexity(prompt: string): Promise<string> {
           {
             role: "system",
             content: `You are a lead analysis expert for BitMind, a company building decentralized Deepfake Detection Systems leveraging the Bittensor Network. 
-            Analyze the given lead information and provide:
-            1. Their background and relevance to AI/blockchain
-            2. Potential collaboration opportunities with BitMind
-            3. Suggested identity categories (investor, developer, student, founder, potential_partner, other)
-            4. A relevance score (0-100) based on their potential value to BitMind
-            Format with clear sections.`
+            When analyzing leads:
+            1. If an X (Twitter) handle is provided, research their profile and recent activity to understand their background and interests
+            2. Search for any public information about the person and their organization
+            3. Analyze their potential fit with BitMind based on:
+               - Their background in AI, blockchain, or related technologies
+               - Their organization's relevance to deepfake detection
+               - Their potential role (investor, developer, etc.)
+               - Their influence in relevant communities
+            4. Suggest specific collaboration opportunities with BitMind
+            5. Assign identity categories (investor, developer, student, founder, potential_partner, other)
+            6. Give a relevance score (0-100) based on their potential value to BitMind
+            
+            Format with clear sections and be specific about why they might be valuable to BitMind.`
           },
           {
             role: "user",
@@ -104,8 +111,12 @@ export async function analyzeLead(lead: BusinessCardSubmissionDB & { id: string 
       Name: ${lead.name || 'Unknown'}
       Email: ${lead.email}
       Organization: ${lead.organization || 'Unknown'}
-      Note: ${lead.note || 'No notes provided'}
       X Handle: ${lead.xHandle || 'None provided'}
+      Note: ${lead.note || 'No notes provided'}
+
+      ${lead.xHandle ? `Please research their X profile at ${lead.xHandle} and include insights from their recent activity and public information.` : ''}
+      
+      Based on this information and your research, provide a comprehensive analysis of their potential value to BitMind.
     `;
 
     // Get Perplexity analysis
