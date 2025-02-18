@@ -24,6 +24,7 @@ const satori = localFont({
 export const metadata: Metadata = {
   title: "Let's Stay Connected | BitMind",
   description: "It was great meeting you in Denver! Let's stay connected and continue our conversation.",
+  metadataBase: new URL('https://irl.bitmind.ai'),
   openGraph: {
     title: "Let's Stay Connected | BitMind",
     description: "It was great meeting you in Denver! Let's stay connected and continue our conversation.",
