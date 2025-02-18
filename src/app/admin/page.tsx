@@ -13,6 +13,7 @@ import { LeadAnnotationForm } from '@/components/ui/lead-annotation-form';
 import { Inbox, CheckCircle } from 'lucide-react';
 import { AuthGuard } from '@/components/auth-guard';
 import { useAuth } from '@/lib/auth-context';
+import { ManualLeadDialog } from '@/components/ui/manual-lead-dialog';
 
 function AdminPageContent() {
   const { user } = useAuth();
@@ -190,10 +191,15 @@ function AdminPageContent() {
       <main className="min-h-screen p-8 pt-20 bg-gray-950">
         <Card className="max-w-6xl mx-auto bg-[#1A1A1A]/90 border-gray-800">
           <CardHeader>
-            <CardTitle className="text-2xl font-satori text-white">Lead Management</CardTitle>
-            <CardDescription className="text-gray-400">
-              Logged in as {user?.email} • Review and annotate leads from business card submissions
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl font-satori text-white">Lead Management</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Logged in as {user?.email} • Review and annotate leads from business card submissions
+                </CardDescription>
+              </div>
+              <ManualLeadDialog />
+            </div>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="unannotated" className="w-full" onValueChange={setActiveTab}>

@@ -32,7 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Redirect if on admin page and not authenticated
       if (!user && pathname?.startsWith('/admin')) {
-        router.push('/');
+        const returnTo = encodeURIComponent(pathname);
+        router.push(`/login?returnTo=${returnTo}`);
       }
     });
 
@@ -43,9 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const auth = getAuth();
       const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({
-        hd: 'bitmind.ai' // Restrict to BitMind domain
-      });
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error('Error signing in:', error);
@@ -56,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const auth = getAuth();
       await signOut(auth);
-      router.push('/');
+      router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error);
     }
