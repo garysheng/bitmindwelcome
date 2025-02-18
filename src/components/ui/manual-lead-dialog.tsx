@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, Timestamp, FieldValue } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth-context';
 import { analyzeLead } from '@/lib/cron/leadAnalysis';
 import { BusinessCardSubmissionDB, AdminAnnotation } from '@/types';
@@ -36,8 +36,8 @@ export function ManualLeadDialog() {
       };
 
       const leadData: Omit<BusinessCardSubmissionDB, 'createdAt' | 'updatedAt'> & {
-        createdAt: any;
-        updatedAt: any;
+        createdAt: FieldValue;
+        updatedAt: FieldValue;
       } = {
         ...formData,
         createdAt: serverTimestamp(),
