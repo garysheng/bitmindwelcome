@@ -231,7 +231,7 @@ export function WelcomeForm() {
               >
                 <div className="space-y-2">
                   <p className="text-gray-300 font-satori font-bold">Thanks for connecting!</p>
-                  <p className="text-gray-400">We'd love to have you try our AI detector Chrome extension</p>
+                  <p className="text-gray-400">We&apos;d love to have you try our AI detector Chrome extension</p>
                 </div>
                 
                 <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 text-left">
