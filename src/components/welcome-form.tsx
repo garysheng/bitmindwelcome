@@ -6,12 +6,11 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { FormStep, BITMIND_TEAMMATES, BusinessCardSubmissionDB } from '@/types';
+import { FormStep } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, updateDoc, doc, serverTimestamp, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { analyzeLead } from '@/lib/cron/leadAnalysis';
+import { Chrome, ExternalLink } from 'lucide-react';
 
 export function WelcomeForm() {
   const searchParams = useSearchParams();
@@ -19,22 +18,16 @@ export function WelcomeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
-    name: '',
-    organization: '',
-    teammateMet: 'ken',
-    xHandle: '',
-    note: ''
+    name: ''
   });
   const [leadDocId, setLeadDocId] = useState<string | null>(null);
-  const [teammateName, setTeammateName] = useState('Ken Miyachi');
-  const [error, setError] = useState<string | null>(null);
+  const [teammateName, setTeammateName] = useState('');
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   useEffect(() => {
     const teammate = searchParams.get('teammate');
     if (teammate) {
       setTeammateName(teammate);
-      setFormData(prev => ({ ...prev, teammateMet: teammate }));
     }
   }, [searchParams]);
 
@@ -116,6 +109,8 @@ export function WelcomeForm() {
           break;
         case 'name':
           if (!leadDocId) throw new Error('No lead document ID found');
+          
+          setIsSubmitting(true);
           if (value) { // Only update if a value was provided
             await updateDoc(doc(db, 'leads', leadDocId), {
               name: value,
@@ -123,92 +118,19 @@ export function WelcomeForm() {
             });
             setFormData(prev => ({ ...prev, name: value }));
           }
-          nextStep = 'organization';
-          break;
-        case 'organization':
-          if (!leadDocId) throw new Error('No lead document ID found');
-          if (value) { // Only update if a value was provided
-            await updateDoc(doc(db, 'leads', leadDocId), {
-              organization: value,
-              updatedAt: serverTimestamp()
-            });
-            setFormData(prev => ({ ...prev, organization: value }));
-          }
-          nextStep = formData.teammateMet ? 'xhandle' : 'teammate';
-          break;
-        case 'teammate':
-          if (!leadDocId) throw new Error('No lead document ID found');
-          if (value) { // Only update if a value was provided
-            await updateDoc(doc(db, 'leads', leadDocId), {
-              teammateMet: value,
-              updatedAt: serverTimestamp()
-            });
-            setFormData(prev => ({ ...prev, teammateMet: value }));
-          }
-          nextStep = 'xhandle';
-          break;
-        case 'xhandle':
-          if (!leadDocId) throw new Error('No lead document ID found');
-          if (value) {
-            const formattedHandle = formatXHandle(value);
-            if (!validateXHandle(formattedHandle)) {
-              setError('Please enter a valid X handle (max 15 characters, letters, numbers, and underscores only)');
-              return;
-            }
-            await updateDoc(doc(db, 'leads', leadDocId), {
-              xHandle: formattedHandle,
-              updatedAt: serverTimestamp()
-            });
-            setFormData(prev => ({ ...prev, xHandle: formattedHandle }));
-          }
-          setError(null);
-          nextStep = 'note';
-          break;
-        case 'note':
-          if (!leadDocId) throw new Error('No lead document ID found');
           
-          setIsSubmitting(true);
-          // Update the note if provided
-          if (value) {
-            await updateDoc(doc(db, 'leads', leadDocId), {
-              note: value,
-              updatedAt: serverTimestamp()
-            });
-            setFormData(prev => ({ ...prev, note: value }));
-          }
-
-          // Move to thanks screen immediately
+          // Move to thanks screen immediately after name
           nextStep = 'thanks';
           setCurrentStep(nextStep);
           setIsSubmitting(false);
-
-          // Trigger AI analysis in the background
-          const leadDoc = await getDoc(doc(db, 'leads', leadDocId));
-          const leadData = leadDoc.data() as BusinessCardSubmissionDB;
-          analyzeLead({ ...leadData, id: leadDocId }).catch(err => {
-            console.error('Error analyzing lead:', err);
-          });
-          
           break;
       }
 
       setCurrentStep(nextStep);
     } catch (error) {
       console.error('Error handling submission:', error);
+      setIsSubmitting(false);
     }
-  };
-
-  const validateXHandle = (handle: string): boolean => {
-    if (!handle) return true; // Empty is valid since it's optional
-    const cleanHandle = handle.startsWith('@') ? handle : `@${handle}`;
-    // X handle rules: letters, numbers, underscores, no spaces, max 15 chars (excluding @)
-    const validXHandleRegex = /^@[A-Za-z0-9_]{1,15}$/;
-    return validXHandleRegex.test(cleanHandle);
-  };
-
-  const formatXHandle = (handle: string): string => {
-    if (!handle) return '';
-    return handle.startsWith('@') ? handle : `@${handle}`;
   };
 
   const slideAnimation = {
@@ -289,120 +211,6 @@ export function WelcomeForm() {
                 <Button 
                   className="w-full bg-white text-black hover:bg-gray-100"
                   onClick={(e) => handleSubmit((e.currentTarget.previousElementSibling as HTMLInputElement).value)}
-                >
-                  Next
-                </Button>
-              </motion.div>
-            ) : currentStep === 'organization' ? (
-              <motion.div 
-                key="organization"
-                className="space-y-4"
-                {...slideAnimation}
-              >
-                <CardDescription className="text-center mb-4 text-gray-300 font-satori font-bold">
-                  What organization are you with?
-                </CardDescription>
-                <Input
-                  type="text"
-                  placeholder="Enter your organization"
-                  className="bg-[#1A1A1A] border-gray-700 text-gray-300 placeholder:text-gray-600"
-                  value={formData.organization}
-                  autoFocus
-                  onChange={(e) => setFormData(prev => ({ ...prev, organization: e.target.value }))}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e.currentTarget.value)}
-                />
-                <Button 
-                  className="w-full bg-white text-black hover:bg-gray-100"
-                  onClick={(e) => handleSubmit((e.currentTarget.previousElementSibling as HTMLInputElement).value)}
-                >
-                  Next
-                </Button>
-              </motion.div>
-            ) : currentStep === 'teammate' ? (
-              <motion.div 
-                key="teammate"
-                className="space-y-4"
-                {...slideAnimation}
-              >
-                <CardDescription className="text-center mb-4 text-gray-300 font-satori font-bold">
-                  Which BitMind teammate did you meet?
-                </CardDescription>
-                <select
-                  className="w-full p-2 rounded-md border border-gray-700 bg-[#1A1A1A] text-gray-300"
-                  defaultValue="ken"
-                  autoFocus
-                  onChange={(e) => handleSubmit(e.target.value)}
-                >
-                  <option value="" disabled>Select BitMind teammate</option>
-                  {BITMIND_TEAMMATES.map(teammate => (
-                    <option key={teammate.id} value={teammate.id}>
-                      {teammate.name}
-                    </option>
-                  ))}
-                </select>
-                <Button 
-                  className="w-full bg-white text-black hover:bg-gray-100"
-                  onClick={() => handleSubmit("")}
-                >
-                  Next
-                </Button>
-              </motion.div>
-            ) : currentStep === 'xhandle' ? (
-              <motion.div 
-                key="xhandle"
-                className="space-y-4"
-                {...slideAnimation}
-              >
-                <CardDescription className="text-center mb-4 text-gray-300 font-satori font-bold">
-                  What&apos;s your X (Twitter) handle?
-                </CardDescription>
-                <Input
-                  type="text"
-                  placeholder="@username"
-                  className="bg-[#1A1A1A] border-gray-700 text-gray-300 placeholder:text-gray-600"
-                  value={formData.xHandle}
-                  autoFocus
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData(prev => ({ ...prev, xHandle: value }));
-                    if (value && !validateXHandle(formatXHandle(value))) {
-                      setError('Please enter a valid X handle (max 15 characters, letters, numbers, and underscores only)');
-                    } else {
-                      setError(null);
-                    }
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSubmit(e.currentTarget.value)}
-                />
-                {error && (
-                  <p className="text-red-500 text-sm text-center">{error}</p>
-                )}
-                <Button 
-                  className="w-full bg-white text-black hover:bg-gray-100"
-                  onClick={(e) => handleSubmit((e.currentTarget.previousElementSibling?.previousElementSibling as HTMLInputElement)?.value)}
-                  disabled={!!error}
-                >
-                  Next
-                </Button>
-              </motion.div>
-            ) : currentStep === 'note' ? (
-              <motion.div 
-                key="note"
-                className="space-y-4"
-                {...slideAnimation}
-              >
-                <CardDescription className="text-center mb-4 text-gray-300 font-satori font-bold">
-                  Would you like to add a note about what we discussed or what you&apos;d like to discuss?
-                </CardDescription>
-                <Textarea
-                  placeholder="Enter your note here..."
-                  className="min-h-[100px] bg-[#1A1A1A] border-gray-700 text-gray-300 placeholder:text-gray-600"
-                  value={formData.note}
-                  autoFocus
-                  onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
-                />
-                <Button 
-                  className="w-full bg-white text-black hover:bg-gray-100"
-                  onClick={() => handleSubmit(formData.note)}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -411,19 +219,41 @@ export function WelcomeForm() {
                       Saving...
                     </div>
                   ) : (
-                    'Finish'
+                    'Submit'
                   )}
                 </Button>
               </motion.div>
             ) : (
               <motion.div 
                 key="thanks"
-                className="text-center space-y-4"
+                className="text-center space-y-6"
                 {...slideAnimation}
               >
-                <p className="text-gray-300 font-satori font-bold">Thanks for connecting! Looking forward to continuing our conversation.</p>
+                <div className="space-y-2">
+                  <p className="text-gray-300 font-satori font-bold">Thanks for connecting!</p>
+                  <p className="text-gray-400">We'd love to have you try our AI detector Chrome extension</p>
+                </div>
+                
+                <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 text-left">
+                  <h3 className="font-satori font-bold text-white text-sm mb-2 flex items-center">
+                    <Chrome className="w-4 h-4 mr-1" />
+                    BitMind AI Detector Extension
+                  </h3>
+                  <p className="text-gray-400 text-xs mb-3">
+                    Automatically detect AI-generated content as you browse the web.
+                  </p>
+                  <Button 
+                    className="w-full bg-white text-black hover:bg-gray-100 font-medium flex items-center justify-center gap-2"
+                    onClick={() => window.open('https://chromewebstore.google.com/detail/ai-detector-bitmind/ejlhmbdnjjlifeeelpnlkkechnmojnhg', '_blank')}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Download Extension
+                  </Button>
+                </div>
+                
                 <Button 
-                  className="w-full bg-white text-black hover:bg-gray-100"
+                  variant="outline"
+                  className="border-gray-700 text-gray-300 hover:bg-gray-800"
                   onClick={() => window.location.href = 'https://bitmind.ai'}
                 >
                   Visit BitMind Homepage

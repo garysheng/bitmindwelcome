@@ -64,7 +64,7 @@ export interface BusinessCardSubmission extends Omit<BusinessCardSubmissionDB, '
   };
 }
 
-export type FormStep = 'email' | 'name' | 'organization' | 'teammate' | 'xhandle' | 'note' | 'thanks';
+export type FormStep = 'email' | 'name' | 'thanks';
 
 export interface BitMindTeammate {
   id: string;
